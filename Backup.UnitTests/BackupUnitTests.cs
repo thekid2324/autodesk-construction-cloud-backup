@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using System.Net.Http;
+using System.IO;
+using System.Reflection;
+using ACC.ApiClient;
 using FluentAssertions;
 using Library.Logger;
 using Polly.Retry;
@@ -99,4 +102,98 @@ public class BackupUnitTests
         sut.ApiClient.Config.Logger.Should().NotBeNull();
         sut.ApiClient.Config.Logger!.Config.LogLevel.Should().Be(LogLevel.Trace);
     }
-}
+
+    [Fact]
+    public void GetBackupSummaryLine_Should_Report_Correct_Counts()
+    {
+        // Arrange
+        ApiClient.ApiClient apiClient = TwoLeggedApiClient
+            .Configure()
+            .WithClientId("id")
+            .AndClientSecret("secret")
+            .ForAccount("account")
+            .Create();
+
+        var rootFolder = new ACC.ApiClient.Entities.Folder(apiClient)
+        {
+            FolderId = "root",
+            ProjectId = "proj",
+            ParentFolderId = "parent"
+        };
+
+        var subfolderCreated = new ACC.ApiClient.Entities.Folder(apiClient)
+        {
+            FolderId = "sub1",
+            ProjectId = "proj",
+            ParentFolderId = "root",
+            ParentFolder = rootFolder,
+            DirectoryInfo = new DirectoryInfo(Path.GetTempPath())
+        };
+
+        var subfolderNotCreated = new ACC.ApiClient.Entities.Folder(apiClient)
+        {
+            FolderId = "sub2",
+            ProjectId = "proj",
+            ParentFolderId = "root",
+            ParentFolder = rootFolder
+        };
+
+        rootFolder.Subfolders = new List<ACC.ApiClient.Entities.Folder>
+        {
+            subfolderCreated,
+            subfolderNotCreated
+        };
+
+        var fileDownloaded = new ACC.ApiClient.Entities.File
+        {
+            FileId = "f1",
+            ProjectId = "proj",
+            ParentFolder = rootFolder,
+            StorageSize = 1024 * 1024,
+            FileInfo = new FileInfo(Path.GetTempFileName()),
+            FileSizeOnDisk = 1024 * 1024
+        };
+
+        var fileNotDownloaded = new ACC.ApiClient.Entities.File
+        {
+            FileId = "f2",
+            ProjectId = "proj",
+            ParentFolder = rootFolder,
+            StorageSize = 1024 * 1024
+        };
+
+        rootFolder.Files = new List<ACC.ApiClient.Entities.File>
+        {
+            fileDownloaded,
+            fileNotDownloaded
+        };
+
+        var subFileDownloaded = new ACC.ApiClient.Entities.File
+        {
+            FileId = "f3",
+            ProjectId = "proj",
+            ParentFolder = subfolderCreated,
+            StorageSize = 1024 * 1024,
+            FileInfo = new FileInfo(Path.GetTempFileName()),
+            FileSizeOnDisk = 1024 * 1024
+        };
+
+        subfolderCreated.Files = new List<ACC.ApiClient.Entities.File> { subFileDownloaded };
+
+        var project = new ACC.Backup.Entities.ProjectBackup(apiClient)
+        {
+            ProjectId = "proj",
+            Name = "Test",
+            BackupStartedAt = DateTime.Now,
+            BackupFinishedAt = DateTime.Now.AddMinutes(1),
+            RootFolder = rootFolder
+        };
+
+        // Act
+        MethodInfo? method = typeof(Backup).GetMethod("GetBackupSummaryLine", BindingFlags.NonPublic | BindingFlags.Static);
+        string? summary = method?.Invoke(null, new object[] { project }) as string;
+
+        // Assert
+        summary.Should().NotBeNull();
+        summary!.Should().Contain("2/3 files backed up in 1/2 folders");
+    }}

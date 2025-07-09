@@ -196,9 +196,9 @@ public class Backup : IBackup
         var ts = (TimeSpan)(project.BackupFinishedAt - project.BackupStartedAt);
         var backupDuration = ts.ToString(@"hh\:mm\:ss");
         int totalFiles = project.FilesRecursive.Count();
-        int filesDownloaded = project.FilesRecursive.Select(f => f.Downloaded).Count();
+        int filesDownloaded = project.FilesRecursive.Count(f => f.Downloaded);
         int totalFolders = project.SubfoldersRecursive.Count();
-        int foldersCreated = project.SubfoldersRecursive.Select(f => f.Created).Count();
+        int foldersCreated = project.SubfoldersRecursive.Count(f => f.Created);
         bool allFilesDownloaded = project.FilesRecursive.All(f => f.Downloaded);
         bool allFoldersCreated = project.SubfoldersRecursive.All(f => f.Created);
         bool totalFileSizeOnDiskMatchesFileSizeReportedByApi =
