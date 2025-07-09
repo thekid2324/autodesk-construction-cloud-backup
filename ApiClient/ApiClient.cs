@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Collections.Concurrent;
 using ACC.ApiClient.Entities;
 using ACC.ApiClient.RestApiResponses;
 using Newtonsoft.Json;
@@ -489,7 +490,7 @@ public class ApiClient : IApiClient
     public async Task<List<FileInfo>> DownloadFiles(
         IEnumerable<File> fileList, string rootDirectory, CancellationToken ct = default)
     {
-        List<FileInfo> fileInfoList = new();
+        ConcurrentBag<FileInfo> fileInfoBag = new();
 
         var parallelOptions = new ParallelOptions
         {
@@ -500,10 +501,10 @@ public class ApiClient : IApiClient
         await Parallel.ForEachAsync(fileList, parallelOptions, async (file, ctx) =>
         {
             FileInfo fileInfo = await DownloadFile(file, rootDirectory, ctx);
-            fileInfoList.Add(fileInfo);
+            fileInfoBag.Add(fileInfo);
         });
 
-        return fileInfoList;
+        return fileInfoBag.ToList();
     }
 
     private Folder MapFolderFromFolderContentsResponseData(string projectId, string parentFolderId,

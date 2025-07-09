@@ -1484,4 +1484,50 @@ public class ApiClientUnitTests
         folderFilePath.Should().Be(@"\Recursion\A001 - ARCHITECTURAL - GRAPHIC SYMBOLS & ABBREVIATIONS.pdf");
         subfolderFilePath.Should().Be(@"\Recursion\1\A505 - OFFICE - ROOFING DETAILS.pdf");
     }
-}
+
+    [Fact]
+    public async Task DownloadFiles_Should_ReturnAllFiles_When_ExecutedInParallel()
+    {
+        // Arrange
+        const string clientId = "AFO4tyzt71HCkL73cn2tAUSRS0OSGaRY";
+        const string clientSecret = "wE3GFhuIsGJEi3d4";
+        const string accountId = "48a4d1eb-a370-42fe-89c9-4dd9e2ad9d41";
+        var httpClient = new HttpClient();
+
+        ApiClient sut = TwoLeggedApiClient
+            .Configure()
+            .WithClientId(clientId)
+            .AndClientSecret(clientSecret)
+            .ForAccount(accountId)
+            .WithOptions(options =>
+            {
+                options.HttpClient = httpClient;
+                options.DryRun = true;
+                options.MaxDegreeOfParallelism = 4;
+            })
+            .Create();
+
+        string rootDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(rootDirectory);
+
+        Folder rootFolder = FakeData.GetFakeFolder(sut);
+        rootFolder.Name = "Root";
+
+        List<File> files = new();
+        for (var i = 0; i < 20; i++)
+        {
+            File file = FakeData.GetFakeFile(rootFolder);
+            file.Name = $"file_{i}.txt";
+            files.Add(file);
+        }
+
+        // Act
+        List<FileInfo> fileInfos = await sut.DownloadFiles(files, rootDirectory);
+
+        // Assert
+        fileInfos.Should().HaveCount(files.Count);
+        fileInfos.Select(f => f.FullName).Should().OnlyHaveUniqueItems();
+        files.All(f => f.FileInfo != null).Should().BeTrue();
+
+        Directory.Delete(rootDirectory, true);
+    }}
