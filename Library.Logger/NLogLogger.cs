@@ -64,7 +64,7 @@ public class NLogLogger : ILogger
 
     public virtual void Error(string message)
     {
-        Log.Warn(message);
+        Log.Error(message);
     }
 
     public virtual void Error(Exception ex, string message)
