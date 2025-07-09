@@ -1,6 +1,8 @@
 using System;
 using FluentAssertions;
 using NSubstitute;
+using NLog;
+using NLog.Targets;
 using Xunit;
 
 namespace Library.Logger.UnitTests;
@@ -342,6 +344,26 @@ public class NLogLoggerUnitTests
         // Assert
         act.Should().NotThrow();
         _sutMock.Received(1).Error(ex, message);
+    }
+
+    [Fact]
+    public void Error_Should_LogAtErrorLevel()
+    {
+        // Arrange
+        var memoryTarget = new MemoryTarget();
+        var config = LogManager.Configuration;
+        config.AddRule(NLog.LogLevel.Trace, NLog.LogLevel.Fatal, memoryTarget);
+        LogManager.ReconfigExistingLoggers();
+
+        var guid = Guid.NewGuid();
+        string message = $"Test:{guid}";
+
+        // Act
+        _sut.Error(message);
+
+        // Assert
+        memoryTarget.Logs.Should().ContainSingle();
+        memoryTarget.Logs[0].Should().Contain("|Error|");
     }
 
     [Fact]
